@@ -1,0 +1,33 @@
+{% if cart_items %}
+  <div class="grid gap-6 lg:grid-cols-[1fr_320px]">
+    <div class="space-y-4">
+      {% for product, quantity in cart_items %}
+        <div class="flex flex-col gap-4 rounded-2xl bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <a href="{% url 'products:detail' product.slug %}" class="font-bold hover:text-indigo-600">{{ product.name }}</a>
+            <p class="mt-1 text-sm text-slate-500">{{ product.price }} تومان</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <form hx-post="{% url 'cart:update' product.id %}" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}' hx-target="#cart-content" hx-swap="outerHTML" class="flex items-center gap-2">
+              <input type="number" name="quantity" value="{{ quantity }}" min="0" max="{{ product.stock_quantity }}" class="w-20 rounded-lg border px-3 py-2">
+              <button class="rounded-lg bg-slate-900 px-3 py-2 text-sm text-white">به‌روزرسانی</button>
+            </form>
+            <form hx-post="{% url 'cart:remove' product.id %}" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}' hx-target="#cart-content" hx-swap="outerHTML">
+              <button class="rounded-lg border border-red-200 px-3 py-2 text-sm text-red-600">حذف</button>
+            </form>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+    <aside class="h-fit rounded-2xl bg-white p-6 shadow-sm">
+      <p class="text-slate-500">مبلغ کل</p>
+      <p class="mt-2 text-2xl font-black">{{ cart_total }} تومان</p>
+      <button class="mt-6 w-full rounded-lg bg-indigo-600 px-4 py-3 font-semibold text-white" disabled>تسویه حساب (به‌زودی)</button>
+    </aside>
+  </div>
+{% else %}
+  <div class="rounded-2xl bg-white p-12 text-center shadow-sm">
+    <p class="text-lg text-slate-500">سبد خرید شما خالی است.</p>
+    <a href="{% url 'products:list' %}" class="mt-5 inline-block rounded-lg bg-indigo-600 px-5 py-3 font-semibold text-white">مشاهده محصولات</a>
+  </div>
+{% endif %}

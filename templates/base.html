@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}SmartShop AI{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+  <style>
+    .htmx-indicator { display: none; }
+    .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { display: inline; }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900">
+  <nav class="sticky top-0 z-20 border-b border-slate-200 bg-white/95 shadow-md backdrop-blur">
+    <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
+      <a href="{% url 'products:list' %}" class="text-2xl font-black tracking-tight text-indigo-600 transition duration-200 ease-in-out hover:text-indigo-800">SmartShop AI</a>
+      <div class="flex items-center gap-4">
+        <a href="{% url 'products:list' %}" class="text-sm text-slate-600 hover:text-indigo-600">محصولات</a>
+        <a href="{% url 'cart:detail' %}" class="relative rounded-full bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 transition duration-200 ease-in-out hover:bg-indigo-100">
+          سبد خرید <span id="cart-summary" class="mr-1 rounded-full bg-emerald-500 px-2 py-0.5 text-white">({{ cart_count }})</span>
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="mx-auto max-w-7xl px-4 py-8">
+    {% if messages %}
+      <div class="mb-6 space-y-2">
+        {% for message in messages %}
+          <div class="rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="mt-16 border-t bg-white">
+    <div class="mx-auto max-w-7xl px-4 py-8 text-center text-sm text-slate-500">
+      SmartShop AI — خرید هوشمند محصولات دیجیتال
+    </div>
+  </footer>
+
+  <button type="button" onclick="document.getElementById('agent-drawer').classList.toggle('hidden')"
+          class="fixed bottom-6 left-6 rounded-full bg-indigo-600 px-5 py-3 font-bold text-white shadow-lg transition duration-200 ease-in-out hover:scale-105 hover:bg-indigo-700">
+    مشاور خرید
+  </button>
+  <aside id="agent-drawer" class="fixed bottom-20 left-6 z-10 hidden w-[min(92vw,420px)] origin-bottom-left overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200 transition duration-200 ease-in-out">
+    <div class="flex items-center justify-between bg-gradient-to-l from-indigo-600 to-violet-600 px-5 py-4 font-bold text-white">
+      <span>Shopping Assistant</span><span class="flex items-center gap-2 text-xs font-normal"><span class="h-2 w-2 animate-pulse rounded-full bg-emerald-300"></span>آنلاین</span>
+    </div>
+    <div id="agent-messages" class="max-h-80 space-y-3 overflow-y-auto bg-slate-50 p-4 text-sm" aria-live="polite">
+      <p class="rounded-lg bg-slate-100 p-3">سلام! درباره نیاز خریدتان بپرسید.</p>
+    </div>
+    <form hx-post="{% url 'agent:chat' %}" hx-target="#agent-messages" hx-swap="beforeend" hx-indicator="#agent-loading"
+          hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}' class="flex gap-2 border-t bg-white p-3">
+      <input name="message" required class="min-w-0 flex-1 rounded-lg border px-3 py-2" placeholder="مثلاً لپ‌تاپ زیر ۵۰ میلیون...">
+      <button class="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white transition duration-200 ease-in-out hover:bg-indigo-700">ارسال <span id="agent-loading" class="htmx-indicator">…</span></button>
+    </form>
+  </aside>
+</body>
+</html>

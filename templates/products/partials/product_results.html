@@ -1,0 +1,30 @@
+{% for product in products %}
+  <article class="group overflow-hidden rounded-2xl bg-white shadow-md ring-1 ring-slate-100 transition duration-300 ease-in-out hover:-translate-y-1 hover:shadow-xl">
+    <a href="{% url 'products:detail' product.slug %}" class="block">
+      {% with image=product.images.all|first %}
+        {% if image %}
+          <img src="{{ image.image_url }}" alt="{{ product.name }}" class="h-52 w-full object-cover">
+        {% else %}
+          <div class="flex h-52 items-center justify-center bg-slate-100 text-slate-400">بدون تصویر</div>
+        {% endif %}
+      {% endwith %}
+    </a>
+    <div class="p-5">
+      <div class="flex items-center justify-between gap-2">
+        <span class="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">{{ product.brand.name }}</span>
+        <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">★ {{ product.average_rating }}</span>
+      </div>
+      <h2 class="mt-2 text-lg font-bold">{{ product.name }}</h2>
+      <p class="mt-2 line-clamp-2 text-sm text-slate-500">{{ product.description }}</p>
+      <div class="mt-5 flex items-center justify-between">
+        <span class="font-black text-slate-900">{{ product.price }} تومان</span>
+        <button hx-post="{% url 'cart:add' product.id %}" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}' hx-target="#cart-summary" hx-swap="outerHTML" hx-indicator="#cart-loading-{{ product.id }}" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition duration-200 ease-in-out hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-300">
+          افزودن به سبد
+          <span id="cart-loading-{{ product.id }}" class="htmx-indicator mr-1">…</span>
+        </button>
+      </div>
+    </div>
+  </article>
+{% empty %}
+  <div class="col-span-full rounded-2xl bg-white p-12 text-center text-slate-500">محصولی با این مشخصات پیدا نشد.</div>
+{% endfor %}
