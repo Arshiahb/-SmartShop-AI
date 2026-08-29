@@ -13,6 +13,7 @@ SYSTEM_PROMPT = (
     "products or attributes. If an exact match is unavailable, use catalog-backed "
     "similar or popular products and explain that they are alternatives."
 )
+MAX_MESSAGE_LENGTH = 2000
 
 
 class ShoppingAgent:
@@ -116,6 +117,11 @@ class ShoppingAgent:
 
     def reply(self, user_message: str) -> str:
         """Append a user message and return an API or safe catalog-backed mock response."""
+        if not isinstance(user_message, str) or not user_message.strip():
+            raise ValueError("Message cannot be empty.")
+        if len(user_message) > MAX_MESSAGE_LENGTH:
+            raise ValueError(f"Message cannot exceed {MAX_MESSAGE_LENGTH} characters.")
+        user_message = user_message.strip()
         self.history.append({"role": "user", "content": user_message})
         if not self.api_key:
             answer = self._mock_response(user_message)
@@ -130,6 +136,7 @@ class ShoppingAgent:
             tools=self._tool_schemas(),
             tool_choice="auto",
             temperature=0.2,
+            timeout=30,
         )
         for _ in range(3):
             message = response.choices[0].message
@@ -137,8 +144,11 @@ class ShoppingAgent:
                 break
             messages.append(message.model_dump(exclude_none=True))
             for tool_call in message.tool_calls:
-                arguments = json.loads(tool_call.function.arguments or "{}")
-                result = self.run_tool(tool_call.function.name, arguments)
+                try:
+                    arguments = json.loads(tool_call.function.arguments or "{}")
+                    result = self.run_tool(tool_call.function.name, arguments)
+                except (TypeError, ValueError, json.JSONDecodeError):
+                    result = {"error": "Invalid catalog tool request."}
                 messages.append(
                     {
                         "role": "tool",
@@ -153,6 +163,7 @@ class ShoppingAgent:
                 tools=self._tool_schemas(),
                 tool_choice="auto",
                 temperature=0.2,
+                timeout=30,
             )
         answer = response.choices[0].message.content or "پاسخی از ایجنت دریافت نشد."
         self.history.append({"role": "assistant", "content": answer})

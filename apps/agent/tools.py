@@ -30,6 +30,17 @@ def search_catalog(
     limit: int = 5,
 ) -> list[dict[str, Any]]:
     """Search available catalog products by text, price ceiling, and category slug/name."""
+    query = str(query or "").strip()
+    category = str(category or "").strip() or None
+    try:
+        limit = min(max(int(limit), 1), 10)
+    except (TypeError, ValueError):
+        limit = 5
+    if max_price is not None:
+        try:
+            max_price = Decimal(str(max_price))
+        except (TypeError, ValueError, ArithmeticError):
+            max_price = None
     base = Product.objects.select_related("category", "brand").filter(stock__gt=0)
     products = base
     if query:
@@ -49,7 +60,7 @@ def search_catalog(
         products = products.filter(
             Q(category__slug__iexact=category) | Q(category__name__icontains=category)
         )
-    results = list(products.distinct()[: max(1, limit)])
+    results = list(products.distinct()[:limit])
     if results:
         return [_serialize_product(product) for product in results]
 
@@ -69,12 +80,12 @@ def search_catalog(
                     | Q(brand__name__icontains=term)
                     | Q(category__name__icontains=term)
                 )
-            fuzzy_results = list(fallback.filter(fuzzy_query).distinct()[: max(1, limit)])
+            fuzzy_results = list(fallback.filter(fuzzy_query).distinct()[:limit])
             if fuzzy_results:
                 return [_serialize_product(product) for product in fuzzy_results]
     return [
         _serialize_product(product)
-        for product in fallback.order_by("-average_rating", "-created_at")[: max(1, limit)]
+        for product in fallback.order_by("-average_rating", "-created_at")[:limit]
     ]
 
 
@@ -86,6 +97,9 @@ def get_product_info(slug: str) -> dict[str, Any] | None:
 
 def compare_products(slugs: list[str]) -> list[dict[str, Any]]:
     """Return a database-backed comparison for the requested product slugs."""
+    if not isinstance(slugs, (list, tuple)):
+        return []
+    slugs = [str(slug).strip() for slug in slugs if str(slug).strip()]
     products = Product.objects.select_related("category", "brand").filter(slug__in=slugs)
     by_slug = {product.slug: _serialize_product(product) for product in products}
     return [by_slug[slug] for slug in slugs if slug in by_slug]
@@ -93,6 +107,10 @@ def compare_products(slugs: list[str]) -> list[dict[str, Any]]:
 
 def get_recommendations_for_product(slug: str, limit: int = 3) -> list[dict[str, Any]]:
     """Return database-backed similar products using the recommender service."""
+    try:
+        limit = min(max(int(limit), 1), 10)
+    except (TypeError, ValueError):
+        limit = 3
     product = Product.objects.select_related("category", "brand").filter(slug=slug).first()
     if not product:
         return []

@@ -1,194 +1,229 @@
 # SmartShop AI
 
-## AI-Powered E-Commerce with Tool-Calling Agent & Content-Based RS
+> A catalog-grounded shopping assistant built with Django, HTMX, PostgreSQL, and an explainable content-based recommender.
 
-SmartShop AI یک فروشگاه اینترنتی ماژولار برای محصولات دیجیتال است که تجربه کشف و خرید را با یک Shopping Assistant متصل به کاتالوگ ترکیب می‌کند. ایجنت با Tool Calling به داده‌های واقعی محصولات دسترسی دارد و سیستم توصیه‌گر Content-Based، پیشنهادهای قابل توضیح بر اساس دسته، برند، قیمت، امتیاز و مشخصات فنی تولید می‌کند.
+[![Django 5](https://img.shields.io/badge/Django-5.x-092E20?logo=django&logoColor=white)](https://www.djangoproject.com/)
+[![Python 3.12](https://img.shields.io/badge/Python-3.12+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![HTMX](https://img.shields.io/badge/HTMX-interactive-3366CC)](https://htmx.org/)
+[![OpenAI Tool Calling](https://img.shields.io/badge/AI-OpenAI%20Tool%20Calling-412991?logo=openai&logoColor=white)](https://platform.openai.com/docs/guides/function-calling)
+[![Tests](https://img.shields.io/badge/tests-8%20passing-2EA44F)](https://pytest.org/)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docs.docker.com/compose/)
 
-## قابلیت‌های کلیدی
+## Overview
 
-- کاتالوگ محصولات دیجیتال با دسته‌بندی درختی، برند و مشخصات JSON
-- حساب کاربری سفارشی مبتنی بر Django
-- سبد خرید Session-based و سفارش آزمایشی با کسر موجودی
-- جست‌وجو، فیلتر و رابط واکنش‌گرا با HTMX
-- توصیه‌گر Content-Based برای محصول مشابه و پیشنهاد شخصی
-- Shopping Assistant با ابزارهای جست‌وجو، اطلاعات محصول، مقایسه و پیشنهاد
-- Mock/Fallback ایجنت در نبود کلید API
-- Seed قابل تکرار با حداقل ۵۰ محصول واقعی‌نما
+SmartShop AI is a portfolio-ready e-commerce MVP that demonstrates how to combine a conventional Django domain model with grounded AI behavior. The assistant does not invent product facts: it queries catalog tools for product search, authoritative details, comparisons, and similar-item recommendations. A deterministic recommender provides explainable ranking using category, brand, price, rating, and structured specifications.
 
-## Tech Stack
+The interface is server-rendered and progressively enhanced with HTMX, keeping the application simple to deploy while still providing responsive search, cart updates, recommendations, and chat interactions.
 
-| حوزه | فناوری |
-|---|---|
-| Backend | Python 3.12+, Django 5+ |
-| Database | PostgreSQL 16 |
-| UI | HTMX, Tailwind CSS CDN |
-| AI | OpenAI-compatible API, Tool Calling |
-| Recommendation | Content-Based weighted scoring |
-| Runtime | Docker, Docker Compose |
-| Testing | Pytest, pytest-django, factory_boy |
-| Quality | Ruff |
-
-## معماری
+## Architecture
 
 ```mermaid
 flowchart LR
-    U[کاربر] --> H[HTMX + Tailwind UI]
-    H --> V[Django Views]
-    V --> A[ShoppingAgent]
-    A --> T[Catalog Tools]
-    T --> P[(PostgreSQL)]
-    A --> L[LLM API / Ollama / Mock]
-    V --> R[Recommender Service]
-    R --> P
-    V --> C[Cart Session]
-    C --> P
+    User[Customer] --> UI[HTMX + Tailwind UI]
+    UI --> Views[Django Views]
+    Views --> Catalog[Products & Categories]
+    Views --> Cart[Session Cart]
+    Views --> Recs[Recommender Service]
+    Views --> Agent[ShoppingAgent]
+    Catalog --> DB[(PostgreSQL)]
+    Cart --> Session[(Django Session)]
+    Recs --> DB
+    Agent --> Tools[Catalog Tool Registry]
+    Tools --> DB
+    Agent --> LLM[OpenAI-compatible API]
+    Agent -. no API key .-> Mock[Deterministic catalog fallback]
 ```
 
-جریان اصلی چت:
+### AI tool-calling loop
 
-```text
-User -> HTMX POST /agent/chat/ -> ShoppingAgent
-      -> Tool Calling -> search_catalog / get_product_info /
-         compare_products / get_recommendations_for_product
-      -> Product database -> پاسخ مستند به داده‌های کاتالوگ
-```
+1. A customer submits a message to `POST /agent/chat/`.
+2. `ShoppingAgent` validates the message and sends a constrained system prompt plus tool schemas to the configured OpenAI-compatible model.
+3. The model may request one of four read-only catalog tools.
+4. The tool registry executes database-backed queries and returns structured JSON.
+5. The model receives the tool result and produces a catalog-grounded answer.
+6. If no API key is configured, the deterministic fallback responds directly from the catalog.
 
-## راه‌اندازی سریع با Docker
+## Key Features
 
-پیش‌نیاز: Docker Desktop و Docker Compose.
+- **Grounded shopping assistant:** product facts, prices, stock, comparisons, and recommendations come from database-backed tools.
+- **Explainable recommender:** weighted content similarity based on category, brand, price, rating, and JSON specifications.
+- **Personalized recommendations:** purchase history is used when available; new users receive a highly-rated in-stock fallback.
+- **HTMX interaction model:** search, filtering, cart actions, and assistant chat update focused page fragments without full refreshes.
+- **Transactional inventory:** order creation uses `transaction.atomic()` and row locks to protect stock updates.
+- **Robust settings hierarchy:** development, test, and production settings are separated; tests use in-memory SQLite while Docker development uses PostgreSQL.
+- **Defensive AI boundary:** bounded messages, normalized tool arguments, malformed tool-call handling, a three-round tool loop, and a 30-second upstream timeout.
+- **Credential-safe architecture:** secrets are environment-provided, `.env` is ignored, and no credential is embedded in application code or documentation.
+- **Repeatable catalog seeding:** `seed_catalog` creates demo categories, brands, and products without duplicate seed records.
+
+## Technology Stack
+
+| Layer | Technology |
+| --- | --- |
+| Application | Django 5.x, Python 3.12+ |
+| Persistence | PostgreSQL 16 in Docker; SQLite `:memory:` for local tests |
+| UI | Django templates, HTMX, Tailwind CSS CDN |
+| AI | OpenAI-compatible Chat Completions with function/tool calling |
+| Recommendations | Deterministic content-based ranking |
+| Runtime | Docker Compose, Gunicorn dependency included |
+| Quality | Pytest, pytest-django, factory_boy, Ruff |
+
+## Quickstart
+
+### Option A: local tests without PostgreSQL
+
+The test suite is intentionally independent of Docker and PostgreSQL. `pytest.ini` selects `core.settings.test`, which uses an in-memory SQLite database.
 
 ```bash
-copy .env.example .env
+python -m venv .venv
+
+# Windows
+.venv\Scripts\activate
+
+# macOS/Linux
+# source .venv/bin/activate
+
+python -m pip install -r requirements.txt
+python -m pytest -q
+python -m ruff check .
+```
+
+Expected verification:
+
+```text
+8 passed
+All checks passed!
+```
+
+### Option B: full-stack Docker development
+
+Prerequisites: Docker Desktop and Docker Compose.
+
+```bash
+copy .env.example .env       # Windows
+# cp .env.example .env       # macOS/Linux
+
 docker compose up -d --build
 docker compose exec web python manage.py migrate
 docker compose exec web python manage.py seed_catalog
 ```
 
-سپس برنامه روی `http://localhost:8000` در دسترس است. وضعیت سرویس‌ها:
+Open `http://localhost:8000`. Useful operational commands:
 
 ```bash
 docker compose ps
 docker compose logs -f web
+docker compose exec web python manage.py check
 ```
 
-## راه‌اندازی بدون Docker
+For local execution outside Docker, set `POSTGRES_HOST=localhost` in `.env` and ensure PostgreSQL is running. The normal application settings use PostgreSQL; only the automated test settings use SQLite.
 
-Python 3.12+ و PostgreSQL نصب کنید، سپس:
+## Environment Configuration
 
-```bash
-python -m venv .venv
-# Windows
-.venv\Scripts\activate
-# Linux/macOS
-source .venv/bin/activate
+Copy `.env.example` to `.env` and replace placeholders with environment-specific values. Never commit `.env`.
 
-pip install -r requirements.txt
-copy .env.example .env
-python manage.py migrate
-python manage.py seed_catalog
-python manage.py runserver
-```
+| Variable | Purpose |
+| --- | --- |
+| `DJANGO_SETTINGS_MODULE` | Settings profile, normally `core.settings.dev` for local development |
+| `DJANGO_SECRET_KEY` | Django signing key; required and non-default in production |
+| `DJANGO_DEBUG` | Explicit debug switch; production settings force `False` |
+| `DJANGO_ALLOWED_HOSTS` | Comma-separated host allowlist |
+| `POSTGRES_DB` / `POSTGRES_USER` | Database identity |
+| `POSTGRES_PASSWORD` | Database credential; use a strong deployment secret |
+| `POSTGRES_HOST` / `POSTGRES_PORT` | Database network location |
+| `AGENT_API_KEY` | Optional provider credential; blank selects the safe catalog fallback |
+| `AGENT_BASE_URL` | Optional OpenAI-compatible API base URL |
+| `AGENT_MODEL` | Configured chat model name |
 
-در `.env`، مقدار `POSTGRES_HOST` را برای اجرای خارج از Docker روی `localhost` تنظیم کنید.
+Do not paste real credentials into issues, pull requests, README examples, or logs.
 
-## کانفیگ LLM
+## Application Surface
 
-### OpenAI یا API سازگار
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/` | Product catalog, search, category filter, and recommendations |
+| `GET` | `/products/<slug>/` | Product details and similar products |
+| `GET` | `/cart/` | Session cart |
+| `POST` | `/cart/add/<id>/` | Add an in-stock product |
+| `POST` | `/cart/update/<id>/` | Update cart quantity |
+| `POST` | `/cart/remove/<id>/` | Remove a product |
+| `GET` | `/recommendations/for-you/` | Authenticated personalized recommendations |
+| `GET` | `/recommendations/similar/<slug>/` | Similar products; JSON when requested |
+| `POST` | `/agent/chat/` | Catalog-grounded shopping assistant |
+| `GET` | `/admin/` | Django admin entry point |
 
-```dotenv
-AGENT_API_KEY=your-api-key
-AGENT_BASE_URL=
-AGENT_MODEL=gpt-4o-mini
-```
+## Engineering Highlights
 
-برای سرویس‌های OpenAI-compatible، `AGENT_BASE_URL` را روی آدرس سرویس قرار دهید. ایجنت همیشه باید برای اطلاعات محصول از ابزارهای دیتابیس استفاده کند.
+### Catalog grounding
 
-### Ollama
-
-یک مدل محلی را اجرا کنید و تنظیمات زیر را در `.env` قرار دهید:
-
-```dotenv
-AGENT_API_KEY=ollama
-AGENT_BASE_URL=http://host.docker.internal:11434/v1
-AGENT_MODEL=llama3.1
-```
-
-در صورت نبود کلید، سیستم به Mock/Fallback متصل به دیتابیس برمی‌گردد و بدون خطا اجرا می‌شود.
-
-## Seed کاتالوگ
-
-دستور زیر دسته‌های `Laptops`, `Smartphones`, `Headphones`, `Monitors`، برندهای معتبر و ۵۰ محصول با قیمت، موجودی، امتیاز و مشخصات فنی JSON ایجاد یا به‌روزرسانی می‌کند:
-
-```bash
-python manage.py seed_catalog
-```
-
-این دستور idempotent است و اجرای چندباره رکورد تکراری ایجاد نمی‌کند.
-
-## Endpointها
-
-| Method | مسیر | کاربرد |
-|---|---|---|
-| GET | `/` | فهرست محصولات، جست‌وجو و فیلتر HTMX |
-| GET | `/products/<slug>/` | جزئیات محصول و محصولات مشابه |
-| GET | `/cart/` | نمایش سبد خرید |
-| POST | `/cart/add/<id>/` | افزودن به سبد با HTMX |
-| POST | `/cart/update/<id>/` | تغییر تعداد سبد |
-| POST | `/cart/remove/<id>/` | حذف از سبد |
-| GET | `/recommendations/for-you/` | پیشنهادهای شخصی کاربر واردشده |
-| GET | `/recommendations/similar/<slug>/` | محصولات مشابه؛ JSON با Accept مناسب |
-| POST | `/agent/chat/` | گفت‌وگوی HTMX با Shopping Assistant |
-| GET | `/admin/` | مدیریت Django برای مدیر سیستم |
-
-## ابزارهای Agent
+The agent can only access a small, explicit registry:
 
 - `search_catalog(query, max_price=None, category=None, limit=5)`
 - `get_product_info(slug)`
 - `compare_products(slugs)`
 - `get_recommendations_for_product(slug, limit=3)`
 
-ابزارها مستقیماً از مدل `Product` می‌خوانند. ایجنت مجاز به تولید مشخصات، قیمت یا محصولی که در کاتالوگ وجود ندارد نیست.
+Every tool reads current catalog data and serializes price, stock, taxonomy, ratings, and specifications. Missing products return `None` or an empty collection rather than fabricated facts.
 
-## تست‌ها و کنترل کیفیت
+### Defensive boundaries
 
-اجرای تست‌ها:
+- Empty messages and messages over 2,000 characters are rejected.
+- Agent requests receive a lightweight one-request-per-second cache-backed rate limit.
+- LLM calls use an explicit 30-second timeout.
+- Malformed tool JSON and invalid tool arguments are converted to safe structured errors.
+- Search, comparison, and recommendation tools normalize bad limits, prices, slugs, and query values.
+- CSRF middleware protects state-changing requests and HTMX forms send CSRF headers.
 
-```bash
-docker compose exec web python -m pytest -q
-docker compose exec web python -m ruff check .
-docker compose exec web python -m ruff format --check .
-docker compose exec web python manage.py check
+### Configuration hierarchy
+
+```text
+core/settings/base.py   shared Django and PostgreSQL configuration
+core/settings/dev.py    explicit local development profile
+core/settings/test.py   isolated in-memory SQLite test profile
+core/settings/prod.py   fail-closed production secrets and transport security
 ```
 
-مجموعه تست‌ها شامل:
+## Quality Checks
 
-- Smoke و Django system integration
-- احراز هویت و User سفارشی
-- سبد خرید Session-based
-- ثبت سفارش، snapshot قیمت و کسر موجودی
-- توصیه‌گر مشابه و شخصی‌سازی‌شده
-- ابزارها، ساختار پیام و Mock ایجنت
+Run the same checks used for portfolio verification:
 
-## ساختار ماژولار
+```bash
+python -m pytest -q
+python -m ruff check .
+python manage.py check --settings=core.settings.test
+```
+
+Current baseline: **8 tests passing** and **Ruff clean**.
+
+## Project Layout
 
 ```text
 apps/
-├── accounts/       # User سفارشی و احراز هویت
-├── products/       # کاتالوگ، برند، دسته و مشخصات
-├── cart/           # Session Cart و HTMX endpoints
-├── orders/         # سفارش و اقلام سفارش
-├── recommender/    # Feature extraction و Content-Based RS
-└── agent/          # Tools، ShoppingAgent و چت
+├── accounts/       custom user model
+├── products/       catalog, categories, brands, seed command
+├── cart/           session cart and HTMX endpoints
+├── orders/         transactional order services and models
+├── recommender/    explainable content-based ranking
+└── agent/          ShoppingAgent, tools, and chat endpoint
+core/
+├── settings/       base, dev, test, and prod profiles
+└── urls.py         root routing
+templates/          page templates and HTMX partials
+tests/              service and integration-oriented pytest coverage
+docs/PRD.md         product requirements and roadmap
 ```
 
-## لینک‌های راهنما
+## Scope and Roadmap
 
-- [PRD پروژه](docs/PRD.md)
-- [راهنمای Django](https://docs.djangoproject.com/en/5.2/)
-- [راهنمای HTMX](https://htmx.org/docs/)
-- [راهنمای Docker Compose](https://docs.docker.com/compose/)
-- [راهنمای OpenAI API](https://platform.openai.com/docs/)
+This repository focuses on the catalog, discovery, cart, order service, recommender, and shopping-assistant MVP. Payment processing, fulfillment, customer-facing authentication screens, and production observability remain natural next increments rather than implied shipped capabilities.
 
-## وضعیت پروژه
+Recommended next investments:
 
-این مخزن یک MVP قابل ارائه برای رزومه و پورتفولیو است: معماری ماژولار، داده نمونه قابل بازتولید، تست خودکار، UI تعاملی و ایجنت متصل به ابزارهای کاتالوگ. پرداخت واقعی، لجستیک و مدل اختصاصی خارج از محدوده MVP هستند.
+1. Add HTTP/client and negative-path coverage for all HTMX and agent endpoints.
+2. Add structured agent telemetry with redaction and cost tracking.
+3. Introduce recommendation evaluation fixtures and performance benchmarks.
+4. Separate production Compose deployment from the development `runserver` workflow.
+
+## License
+
+This project is a portfolio/demo codebase. Add a project-specific license before public distribution.
